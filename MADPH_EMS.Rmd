@@ -1,0 +1,105 @@
+---
+title: "MADPH_EMS"
+author: "Charlotte Chase"
+date: "7/15/2020"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(devtools)
+library(readxl)
+library(viridis)
+library(fastDummies)
+library(scales)
+```
+
+#reading in EMS information
+
+```{r}
+ems <- read_excel(
+  "MA_EMS_Opioid.xlsx",
+  na = c("***", "(1-4)")
+) 
+```
+
+#This is clearly a wide dataset, and we want to pivot to a long format to make it tidy.
+#ncol() gives the number of columns in dataframe
+
+
+# we supply a pattern, and grepl looks for that pattern in a given string. (ex...looking for "female" in "age.group")
+#returns true if it finds female, false otherwise
+
+#now we've created a column that says "male," "female", or "total", depending on the age.group column. 
+
+#Next, get rid of extraneous info tagged onto the age group.--that's the second mutate.
+
+#first, we're overriding age.group with whatever the "ifelse" statement evaluates.
+#string detec (str_detect)-- you give it a string and a pattern, and it returns true if it finds that pattern in that string, or false otherwise.
+```{r}
+ems1 <- ems %>% 
+  pivot_longer(cols = 2:ncol(ems), names_to = "age.group", values_to = "count") %>% 
+  mutate( #checking if the word female is in the value "age.group"
+    gender = ifelse( #making a new column, "gender". if it finds "female," then it makes the row female
+      grepl("Female", age.group, fixed = TRUE), 
+      "Female",
+      ifelse( #if it isn't female, it checks to see if it's male. if it's male, then the row is called "male"
+        grepl("Male", age.group, fixed = TRUE),
+        "Male",
+        "Total" #otherwise, it's called total
+      )
+    )
+  ) %>% 
+  mutate(
+    age.group = ifelse(
+      str_detect(age.group, "[0-9]*(\\+|\\-)([0-9]*|)"), #string detect...we're looking for a range with a dash, or a number with a +
+      str_extract(age.group, "[0-9]*(\\+|\\-)([0-9]*|)"), #if we do find that pattern, use string extract
+      "Total" #if it doesn't detect that, put the word "Total".
+    )
+  )
+
+```
+#look up R's regex documentation
+
+
+#bar chart vs line graph??? think about it. 
+#mess around with this. 
+
+
+#fill = what categorical data should be broken up into different colors. Breaking up by "longitudinal" and by "one-off," because that's how we've done the counts.
+
+#use "fill," because the color of the bars is being applied by the "fill" argument in the aesthetic
+
+#categorical data is more useful for grouping the data in different ways...coloring it or faceting it, etc. (changing the shape of the groups, etc.) 
+#categories here are...gender and age.group
+
+#we have two categories of data
+#better to facet by a smaller category
+```{r, warning=FALSE, message=FALSE, error=FALSE}
+ggplot(ems1)+
+  aes(
+    x = Year, 
+    y = count,
+    color = age.group
+  )+
+  labs(x = "Year", y = "EMS Calls for Suspected OD", title = "MA Opioid-Related EMS Incidents by year, 2013-2019")+
+  geom_line()+
+  guides(color = guide_legend(title = "Age Group"))+ #changing the title of legend
+  scale_y_continuous(labels = comma, limits =c(0, 25000))+
+  scale_x_continuous(limits = c(2013, 2019), breaks = seq(2013,2019,1))+ #seq(start, end, interval)
+  theme(axis.title=element_text(size=14,face="bold"))+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme(panel.spacing = unit(1.5, "lines"))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  theme(plot.title = element_text(margin = margin(t = 0, r = 0, b = 20, l = 0)))+
+  facet_wrap(~gender) #by gender
+```
+There are different cases where a column can be more useful than a row...
+
+
+#can facet by gender as well....think about what works, and then we can make it fancy. 
+
+grab a weird sentence...that has the time in military time and try to build a regex that will capture just the millitary time. use the string extract function for practice. 
+
+#Rshiny time...enabling / disabling age groups.
